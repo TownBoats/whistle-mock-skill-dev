@@ -230,6 +230,7 @@ curl -s -X POST http://127.0.0.1:$PORT/cgi-bin/values/move-to \
 | 空数据 | `/{ServiceName}.{MethodName}/ resBody://{MethodName}_empty.json statusCode://200` | `{"retcode":"0","retmsg":"OK","data":null}` |
 | 认证失败 | `/{ServiceName}.{MethodName}/ statusCode://401` | — |
 | 限流 | `/{ServiceName}.{MethodName}/ statusCode://429` | — |
+| 业务异常（HTTP 200 + retcode 非 0） | `/{ServiceName}.{MethodName}/ resBody://{MethodName}_biz_error.json statusCode://200` | `{"retcode":"10001","retmsg":"业务处理失败","data":null}` |
 
 异常场景规则默认**注释掉**（行首加 `# `），不影响正常开发。用户可在 Whistle 中手动启用。
 
