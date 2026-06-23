@@ -22,7 +22,7 @@
 
 **模式：**
 ```txt
-/MethodName/ resBody://{MethodName}.json statusCode://200
+/MethodName/ resBody://{ {Scene}MethodName } statusCode://200
 ```
 
 ### file 协议（用于离线/纯 Mock）
@@ -43,7 +43,7 @@
 
 **模式：**
 ```txt
-/MethodName/ file://{MethodName}.json
+/MethodName/ file://{ {Scene}MethodName }
 ```
 
 ### 协议对比
@@ -52,7 +52,7 @@
 |------|-------------|-----------|
 | 服务器请求 | 是（发送到服务器） | 否（拦截） |
 | 响应头 | 保留真实响应头 | 自动生成 |
-| Content-Type | 来自真实响应 | 来自 Value 名称后缀 |
+| Content-Type | 来自真实响应 | 默认 text/plain，可用 resHeaders 指定 |
 | 连接上下文 | 保持 | 不建立 |
 | 适用场景 | 默认 mock、tRPC 服务 | 离线、纯 mock |
 | 配合 statusCode | `resBody://{key} statusCode://200` | 不需要（始终 200） |
@@ -65,16 +65,16 @@
 
 ```txt
 # 简单方法名匹配（最常见）
-/QueryMaterialsEquityInfo/ resBody://{QueryMaterialsEquityInfo.json} statusCode://200
+/QueryMaterialsEquityInfo/ resBody://{ 专享理财金QueryMaterialsEquityInfo } statusCode://200
 
 # 小写方法名
-/getTransportState/ resBody://{getTransportState.json} statusCode://200
+/getTransportState/ resBody://{ 财富私享会getTransportState } statusCode://200
 
 # Service.Method 带转义点号（精确匹配）
-/FuactEquityMaterialVoService\.ModifyOrderAddress/ resBody://{ModifyOrderAddress.json} statusCode://200
+/FuactEquityMaterialVoService\.ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress } statusCode://200
 
 # Service.Method 不转义（宽松匹配，同样有效）
-/FuactEquityMaterialVoService.ModifyOrderAddress/ resBody://{ModifyOrderAddress.json} statusCode://200
+/FuactEquityMaterialVoService.ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress } statusCode://200
 ```
 
 ### Pattern 匹配规则
@@ -127,10 +127,10 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ### 超时模拟
 ```txt
 # 延迟 3 秒后返回正常数据
-/MethodName/ resDelay://3000 resBody://{MethodName}.json statusCode://200
+/MethodName/ resDelay://3000 resBody://{ {Scene}MethodName } statusCode://200
 
 # 延迟 + 错误响应
-/MethodName/ resDelay://5000 file://{MethodName}_error.json
+/MethodName/ resDelay://5000 file://{ {Scene}MethodName-error }
 ```
 
 ### 网络错误模拟
@@ -154,9 +154,9 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ### 空数据 / 空响应
 ```txt
 # 返回成功但数据为空
-/MethodName/ resBody://{MethodName}_empty.json statusCode://200
+/MethodName/ resBody://{ {Scene}MethodName-空 } statusCode://200
 ```
-其中 `MethodName_empty.json` 内容：
+其中 `{Scene}MethodName-空` 内容：
 ```json
 {
   "retcode": "0",
@@ -169,7 +169,7 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ```txt
 # 50% 概率错误，50% 概率成功
 /MethodName/ statusCode://500 includeFilter://chance:0.5
-/MethodName/ resBody://{MethodName}.json statusCode://200 includeFilter://chance:0.5
+/MethodName/ resBody://{ {Scene}MethodName } statusCode://200 includeFilter://chance:0.5
 ```
 
 ## 部分 Mock 模式
@@ -185,7 +185,7 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ### resBody — 完整替换
 ```txt
 # 替换整个响应体（请求仍发送到服务器）
-/MethodName/ resBody://{MethodName_override.json} statusCode://200
+/MethodName/ resBody://{ {Scene}MethodName-override } statusCode://200
 ```
 
 ### resReplace — 文本替换
@@ -196,55 +196,63 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 
 ## 规则组织最佳实践
 
-### 一个服务 = 一个 Rule
+采用**三级组织模型**：业务大类 → 页面/场景 → 接口变体。
 
-将一个服务的所有方法归入同一个 Rule，便于管理：
+### 一个场景 = 一个 Rule
+
+将一个**页面/业务场景**涉及的所有接口（及变体）归入同一个 Rule，Rule 名 = 场景名。Rule 内可用注释行细分子场景，同接口的多个变体并列、互斥（只启用一行，其余注释）：
 
 ```txt
-# 服务：fuact-equity-material
-# 正常响应
-/QueryMaterialsEquityInfo/ resBody://{QueryMaterialsEquityInfo.json} statusCode://200
-/getTransportState/ resBody://{getTransportState.json} statusCode://200
-/ModifyOrderAddress/ resBody://{ModifyOrderAddress.json} statusCode://200
+# 场景：专享理财金
 
-# 异常场景（注释掉，需要时启用）
+# 落地页
+/QueryMaterialsEquityInfo/ resBody://{ 专享理财金QueryMaterialsEquityInfo } statusCode://200
+/getTransportState/ resBody://{ 专享理财金getTransportState } statusCode://200
+
+# 同接口多变体（互斥，只启用一行）
+/ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress-有数据 } statusCode://200
+# /ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress-空 } statusCode://200
+
+# 异常变体（注释掉，需要时启用）
 # /QueryMaterialsEquityInfo/ statusCode://500
-# /getTransportState/ resDelay://3000 file://{getTransportState_error.json}
+# /getTransportState/ resDelay://3000 file://{ 专享理财金getTransportState-error }
 ```
 
-### Values 按服务分组
+> 不同场景间互不重叠时可同时启用多个 Rule（开启 `allow-multiple-choice`）；在 Whistle 左栏可把 Rule 按**业务大类**用 `\r` 前缀分组折叠（如 `权益页面`、`运营页面`）。
 
-将 Values 按服务名组织到 Group 中：
-- Group：`fuact-equity-material`
-  - `QueryMaterialsEquityInfo.json` — 正常响应
-  - `getTransportState.json` — 正常响应
-  - `ModifyOrderAddress.json` — 正常响应
-  - `getTransportState_error.json` — 错误响应
-  - `QueryMaterialsEquityInfo_empty.json` — 空数据响应
+### Values 按场景分组
+
+将 Values 按场景名组织到 Group 中（Group 名 = 场景名）：
+- Group：`专享理财金`
+  - `专享理财金QueryMaterialsEquityInfo` — 正常响应
+  - `专享理财金getTransportState` — 正常响应
+  - `专享理财金ModifyOrderAddress-有数据` — 有数据变体
+  - `专享理财金ModifyOrderAddress-空` — 空数据变体
+  - `专享理财金getTransportState-error` — 错误变体
 
 ### 命名约定
 
+**Value 名 = `{Scene}{MethodName}[-{Variant}]`，不加 `.json` 后缀。**
+
 | 类型 | 命名格式 | 示例 |
 |------|---------|------|
-| 正常响应 | `{MethodName}.json` | `GetUser.json` |
-| 错误响应 | `{MethodName}_error.json` | `GetUser_error.json` |
-| 空响应 | `{MethodName}_empty.json` | `GetUser_empty.json` |
-| 自定义场景 | `{MethodName}_{场景}.json` | `GetUser_noauth.json` |
+| 正常响应 | `{Scene}{MethodName}` | `专享理财金GetUser` |
+| 有/无数据 | `{Scene}{MethodName}-有数据` / `-空` | `财富私享会WealthMeetingRecentInvite-没有` |
+| 有奖/无奖 | `{Scene}{MethodName}-有奖` / `-无奖` | `会员定投福利卡qry_prize_info_by_actid-有奖` |
+| 错误/异常 | `{Scene}{MethodName}-error` / `-biz_error` | `专享理财金GetUser-error` |
+| 多版本 | `{Scene}{MethodName}-1` / `-2` | `财富私享会WealthMeetingFeaturedReview-2` |
+
+> 业务大类与场景名由 Skill 根据上下文推测、给出建议，经用户确认后使用，不要写死。
 
 ## Content-Type 处理
 
-Value 名称始终添加适当的后缀：
+Value 名不再依赖 `.json` 后缀来推断 Content-Type：
 
-| 后缀 | Content-Type |
-|------|-------------|
-| `.json` | `application/json` |
-| `.html` | `text/html` |
-| `.js` | `application/javascript` |
-| `.css` | `text/css` |
-| `.txt` | `text/plain` |
-| `.xml` | `application/xml` |
-
-如果不添加后缀，Whistle 可能无法设置正确的 Content-Type，导致客户端解析异常。
+- **`resBody://` 模式**（推荐）：请求仍发到真实服务器，Whistle 仅替换响应体，**Content-Type 沿用真实服务器响应头**，无需后缀即可正确解析。
+- **`file://` 模式**（纯 mock）：若客户端对 Content-Type 敏感，可显式追加 `resHeaders://` 设置：
+  ```txt
+  /MethodName/ file://{ 场景MethodName } resHeaders://(content-type=application/json)
+  ```
 
 ## 常见响应封装格式
 

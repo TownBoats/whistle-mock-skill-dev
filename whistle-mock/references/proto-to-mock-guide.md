@@ -72,7 +72,7 @@ enum MaterialStatus {
 
 从 `package` 声明：`fuact.equity.material`
 
-转换为 Rule/Group 名称：`fuact-equity-material`（将 `.` 替换为 `-`）
+服务名主要用于派生 **URL pattern**（`/ServiceName.MethodName/`）。注意：Rule 名与 Value Group 名采用**页面/场景名**（由 Skill 根据上下文推测、用户确认），不再使用服务名，详见 `whistle-mock-patterns.md` 的"规则组织最佳实践"。
 
 ### 2. 提取 RPC 方法
 
@@ -316,7 +316,7 @@ enum MaterialStatus {
 
 ### 生成的 Mock：
 
-**Value：`GetMaterial.json`**
+**Value：`商品物料GetMaterial`**
 ```json
 {
   "code": 0,
@@ -331,7 +331,7 @@ enum MaterialStatus {
 }
 ```
 
-**Value：`GetMaterial_error.json`**
+**Value：`商品物料GetMaterial-error`**
 ```json
 {
   "code": 500,
@@ -340,7 +340,7 @@ enum MaterialStatus {
 }
 ```
 
-**Value：`GetMaterial_empty.json`**
+**Value：`商品物料GetMaterial-空`**
 ```json
 {
   "code": 0,
@@ -349,20 +349,20 @@ enum MaterialStatus {
 }
 ```
 
-**Rule：`fuact-equity-material`**
+**Rule：`商品物料`（场景名）**
 ```txt
 # 正常响应
-/GetMaterial/ resBody://{GetMaterial.json} statusCode://200
+/GetMaterial/ resBody://{ 商品物料GetMaterial } statusCode://200
 
-# 异常场景（取消注释以启用）
+# 异常/边界变体（取消注释以启用）
 # /GetMaterial/ statusCode://500
-# /GetMaterial/ resDelay://3000 file://{GetMaterial_error.json}
-# /GetMaterial/ resBody://{GetMaterial_empty.json} statusCode://200
+# /GetMaterial/ resDelay://3000 file://{ 商品物料GetMaterial-error }
+# /GetMaterial/ resBody://{ 商品物料GetMaterial-空 } statusCode://200
 ```
 
 ### 另一示例：retcode/retmsg 格式（腾讯约定）
 
-**Value：`QueryMaterialsEquityInfo.json`**
+**Value：`专享理财金QueryMaterialsEquityInfo`**
 ```json
 {
   "retcode": "0",
@@ -376,9 +376,9 @@ enum MaterialStatus {
 }
 ```
 
-**Rule：`fuact-equity-material`**
+**Rule：`专享理财金`（场景名）**
 ```txt
-/QueryMaterialsEquityInfo/ resBody://{QueryMaterialsEquityInfo.json} statusCode://200
+/QueryMaterialsEquityInfo/ resBody://{ 专享理财金QueryMaterialsEquityInfo } statusCode://200
 ```
 
 ## iWiki 文档解析

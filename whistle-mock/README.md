@@ -62,20 +62,22 @@ Skill 解析接口定义后会自动生成 mock 响应 JSON，展示给你预览
 确认后 Skill 会自动：
 
 1. 检测 Whistle 端口
-2. 创建 Value Group（按服务名分组）
-3. 为每个 RPC 方法创建 mock JSON Value
-4. 创建/更新 Whistle Rule 并启用
-5. 验证写入结果
+2. 推测并与你确认命名（业务大类 / 页面场景）
+3. 创建 Value Group（按场景分组）
+4. 为每个 RPC 方法（及变体）创建 mock Value，命名 `{场景}{接口名}[-{变体}]`
+5. 创建/更新 Whistle Rule（一个场景 = 一个 Rule）并启用
+6. 验证写入结果
 
-### 6. 可选：生成异常场景
+### 6. 可选：生成异常/边界变体
 
-写入完成后，可以要求生成以下异常场景（默认注释，不影响正常开发）：
+写入完成后，可以要求生成以下异常或边界变体（与正常返回并列写入同一 Rule，默认注释，不影响正常开发）：
 
 - 服务器错误 (500)
 - 超时 (3s delay)
 - 空数据 (data: null)
 - 认证失败 (401)
 - 限流 (429)
+- 业务异常 (HTTP 200 + retcode 非 0)
 
 ## 支持的 Whistle 操作方式
 
@@ -123,12 +125,14 @@ x-whistle-mock/
 
 ## 注意事项
 
-1. **Value Group 分组名**：`\r` 前缀必须是真正的回车符 (0x0D)，不能用字面 `\r`。Skill 会自动处理，手动操作时需用 `$'name=\rServiceName'` 语法。
-2. **tRPC 服务**：mock 响应必须包含 `"retcode": "0", "retmsg": "OK"`（网关自动注入的字段）。
-3. **追加不覆盖**：更新已有 Rule 时追加新行，不会覆盖已有 mock 规则。
-4. **并发安全**：多 Agent 同时操作同一 Rule 时可能覆盖，Skill 会检查是否已存在再决定是否追加。
-5. **验证方式**：写入后用 `/cgi-bin/init` 验证 Value 内容（`/cgi-bin/values/list` 不返回内容）。
-6. **POST 编码**：所有 curl POST 必须用 `--data-urlencode`，不能用 `-d`（否则 JSON 内容会丢失）。
+1. **三级组织模型**：业务大类（Rule 分组）→ 页面/场景（一个 Rule + 一个 Value Group）→ 接口变体（Rule 行 + Value）。Value 命名 `{场景}{接口名}[-{变体}]`，不加 `.json` 后缀。
+2. **命名由 Skill 推测、用户确认**：根据上下文推测业务大类与场景名，给出建议命名，确认后再写入。
+3. **Value Group 分组名**：`\r` 前缀必须是真正的回车符 (0x0D)，不能用字面 `\r`。Skill 会自动处理，手动操作时需用 `$'name=\r场景名'` 语法。
+4. **tRPC 服务**：mock 响应必须包含 `"retcode": "0", "retmsg": "OK"`（网关自动注入的字段）。
+5. **追加不覆盖**：更新已有 Rule 时追加新行，不会覆盖已有 mock 规则；同接口多变体并列、互斥（只启用一行）。
+6. **并发安全**：多 Agent 同时操作同一 Rule 时可能覆盖，Skill 会检查是否已存在再决定是否追加。
+7. **验证方式**：写入后用 `/cgi-bin/init` 验证 Value 内容（`/cgi-bin/values/list` 不返回内容）。
+8. **POST 编码**：所有 curl POST 必须用 `--data-urlencode`，不能用 `-d`（否则 JSON 内容会丢失）。
 
 ## 常见问题
 
