@@ -3,7 +3,7 @@ name: whistle-mock
 cn_name: Whistle Mock 规则生成
 owner: timotang
 description: 当用户需要为 RPC/API 接口生成 Whistle mock 规则时使用此 Skill。指导解析接口文档（proto 文件、iWiki 文档），根据返回结构自动生成 mock 数据，通过 HTTP API 或 whistle-mcp 写入 Whistle。触发关键词：生成mock规则, mock接口, mock API, 接口mock, whistle mock, 生成mock数据.
-version: 1.0.0
+version: 1.0.2
 updated_at: '2026-06-25'
 tags:
   tech_stack:
