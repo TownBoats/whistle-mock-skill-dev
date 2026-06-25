@@ -16,11 +16,12 @@
 > 这些是反复踩坑后总结的 Top 陷阱，**写入前先扫一遍能避免 80% 的失败**：
 
 1. **`rules/add` 只创建空壳，不写内容**——真正写入靠 `rules/select` 的 `value=` 参数。两步**必须串在同一次 Bash 调用里**（用 `;` 串联），否则一旦中途被截断就会留下空壳 Rule。结束前用 `rules/list` 验证 `data` 字段非空。
-2. **🚨 `resBody://{XXX}` 花括号内零空格 + 服务名 `.` 必须转义**——这三件事任一违反，Whistle 会返回 `DNS Lookup Failed`（hostname 为空字符串）：
+2. **🚨 `resBody://{XXX}` 花括号内零空格 + pattern 取最后两层**——写入前重点确认：
    - `resBody://{ XXX }` ❌（带空格） → `resBody://{XXX}` ✅
-   - `/Service.Method/` ❌（未转义 `.`） → `/Service\.Method/` ✅
+   - `/package.subpkg.Service.Method/` ❌（完整 package） → `/Service.Method/` ✅
+   - `.` 不用转义，不要写成 `/Service\.Method/`
    - 强烈建议显式加 `resType://json` 与已跑通的规则对齐
-3. **Whistle 没有 `values/add-group` 接口**——别浪费 turn 探活。建分组的**唯一**方式是 `values/add` + `$'name=\r{Group}'`（必须 ANSI-C quoting）。
+3. **Whistle 没有 `values/add-group` 接口**——别浪费 turn 探活。建分组的**唯一**方式是 `values/add` + `$'name=\r{Group}'`（必须 ANSI-C quoting）。`values/move-to` 必须用 `from=`（不是 `name=`）且带 `group=false`，只认 `ec=0`。
 4. **`\r` 必须是真回车符 (0x0D)**——用 `$'name=\r分组名'`。双引号 `"...\r..."` 或单引号 `'...\r...'` 都会变成字面反斜杠+r，分组失效。
 5. **POST 必须 `--data-urlencode`**——用 `-d` 传 JSON 时特殊字符会丢，写入为空。
 6. **写入用 `value` 字段，读取用 `data` 字段**——字段名不对称，别搞混。
@@ -93,7 +94,7 @@ curl -s -X POST http://127.0.0.1:{PORT}/cgi-bin/rules/select \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "clientId=1718600000000-0" \
   --data-urlencode "name=规则名" \
-  --data-urlencode "value=/Service\.MethodName/ resBody://{mock.json} resType://json statusCode://200" \
+  --data-urlencode "value=/Service.MethodName/ resBody://{mock.json} resType://json statusCode://200" \
   --data-urlencode "selected=true" \
   --data-urlencode "active=true" \
   --data-urlencode "key=w-reactkey-$(( RANDOM % 1000 ))" \
@@ -466,7 +467,7 @@ curl -s -X POST http://127.0.0.1:$PORT/cgi-bin/rules/select \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "clientId=1718600000000-0" \
   --data-urlencode "name=mock-MyService" \
-  --data-urlencode "value=/UserService\.GetUserInfo/ resBody://{GetUserInfo.json} resType://json statusCode://200" \
+  --data-urlencode "value=/UserService.GetUserInfo/ resBody://{GetUserInfo.json} resType://json statusCode://200" \
   --data-urlencode "selected=true" \
   --data-urlencode "active=true" \
   --data-urlencode "key=w-reactkey-$(( RANDOM % 1000 ))" \
@@ -481,7 +482,7 @@ curl -s -X POST http://127.0.0.1:$PORT/cgi-bin/rules/select \
 1. **`clientId` 格式**：`{timestamp}-{seq}`，如 `1718100000000-0`。用于标识客户端会话，任意生成即可。
 2. **分组标记**：名称前加 `\r`（**真正的回车符 0x0D**）表示分组，无论是 Rules 还是 Values。
    - ⚠️ 必须用 ANSI-C quoting：`--data-urlencode $'name=\r分组名'`。双引号 `"...\r..."` 或单引号 `'...\r...'` 都只会得到**字面反斜杠+r**，分组不生效。纯 bash/curl 即可，无需 Python。
-   - `move-to` 的 `to` 参数同理必须用 `$'to=\r分组名'`，否则返回 `ec=2`（目标分组未匹配），文件不会进组。
+   - `move-to` 的参数是 **`from=`**（不是 `name=`），且必须带 **`group=false`**。`to` 参数同理必须用 `$'to=\r分组名'`。返回 **`ec=0`** 才算成功归组，`ec=2` 表示未匹配到目标分组（通常是参数名错误或 `to` 分组不存在），文件不会进组。
    - 验证分组：读 `~/.WhistleAppData/.whistle/values/properties` 的 `filesOrder`，分组名应满足 `ord(name[0])==13`；或 `curl .../values/list | grep -o $'\r[A-Za-z]*' | od -c` 看是否以 `\r`(0d) 开头。
 3. **`/cgi-bin/rules/select` vs `/cgi-bin/rules/add`**：
    - `add` 仅创建空规则（不含内容）

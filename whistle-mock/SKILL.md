@@ -63,7 +63,7 @@ tags:
 ### 步骤 2：获取并解析接口文档
 
 - **来源**：Git URL（工蜂 MCP 取 `.proto`）/ iWiki 链接（iWiki MCP）/ 直接粘贴。获取失败时一律降级为请用户直接粘贴内容。
-- **解析提取**：服务名 + RPC 方法（→ URL pattern）、响应消息（→ mock 数据）、业务场景线索（→ `{Category}`/`{Scene}` 命名）。
+- **解析提取**：完整服务路径 + RPC 方法，并默认取最后两层 `{Service}.{Method}` 作为 URL pattern（`.` 不转义）；响应消息（→ mock 数据）、业务场景线索（→ `{Category}`/`{Scene}` 命名）。
 - proto 解析细节见 `references/proto-to-mock-guide.md`。
 
 ### 步骤 3：输出规划清单并确认（第一轮回答收尾，**不出 JSON**）
@@ -114,26 +114,27 @@ Rules 清单：
 1. **读现状** — `GET /cgi-bin/rules/list` 检查是否已存在同名 Rule。
 2. **建 Value Group** — `POST /cgi-bin/values/add`，`name=\r{Scene}`。
    > 🚨 `\r` 必须是**真正的回车符 (0x0D)**：bash/zsh 用 ANSI-C quoting `--data-urlencode $'name=\r{Scene}'`，**切勿用双/单引号**（会变字面 `\r`，分组失效）。详见 reference「分组管理」。
-3. **建 Values** — 对每个方法/变体：`values/add`（`name={Scene}{MethodName}[-{Variant}]`，`value=格式化 JSON`），再 `values/move-to`（`to=\r{Scene}`，同样需 `$'to=\r{Scene}'`）移入分组。
+3. **建 Values** — 对每个方法/变体：先 `values/add`（`name={Scene}{MethodName}[-{Variant}]`，`value=格式化 JSON`），再 `values/move-to`（`from={ValueName}`、`to=\r{Scene}`、**`group=false`**）移入分组。
+
 4. **建/更新 Rule（写入内容 + 启用，必须一气呵成）** — 一个场景 = 一个 Rule（Rule 名 = `{Scene}`）。
    > 🚨🚨 **`rules/add` 只创建空壳 Rule，不写内容！必须立刻调 `rules/select` 才真正落盘。**
    > **两步必须串在同一次 Bash 调用里**（用 `;` 串联，不要分批），杜绝在 `rules/add` 之后被中断（turn 上限/超时/网络）留下空壳。
    > 若不存在则 `rules/add; rules/select`；已存在则读 `data` **追加新行**（不覆盖），再 `rules/select`。可选用 `\r{Category}` 分组归类。
    > 若发现已存在内容为空的同名 Rule（之前被截断的空壳），先 `rules/remove` 删除再重做。
 
-   规则格式（**`{Value}` 引用必须零空格、服务名 `.` 必须转义**，否则 Value 匹配不到 → resBody 为空 → 触发 DNS 报错）：
+   规则格式（**默认取完整 RPC 路径最后两层 `{Service}.{Method}`，`.` 不转义；`{Value}` 引用必须零空格**）：
    ```txt
    # {Scene} - 正常响应
-   /{ServiceName}\.{MethodName}/ resBody://{{Scene}{MethodName}} resType://json statusCode://200
+   /{ServiceName}.{MethodName}/ resBody://{{Scene}{MethodName}} resType://json statusCode://200
    # 同接口多变体并列、互斥（只启用一行，其余 # 注释）
-   /{ServiceName}\.{MethodName}/ resBody://{{Scene}{MethodName}-有数据} resType://json statusCode://200
-   # /{ServiceName}\.{MethodName}/ resBody://{{Scene}{MethodName}-空} resType://json statusCode://200
+   /{ServiceName}.{MethodName}/ resBody://{{Scene}{MethodName}-有数据} resType://json statusCode://200
+   # /{ServiceName}.{MethodName}/ resBody://{{Scene}{MethodName}-空} resType://json statusCode://200
    ```
    Rule 内可用 `# 子场景标题` 分块（如 `# 落地页`、`# 分享页`）。
 
-   > 🚨 **三处常踩坑**（同时违反会导致 Whistle 报 `DNS Lookup Failed`，hostname 为空字符串）：
+   > 🚨 **三处常踩坑**：
    > 1. **`resBody://{XXX}` 花括号内不能有空格**：`{ XXX }` ❌ → `{XXX}` ✅。带空格时 Whistle 把整段当字面 URL 而非 Value 引用，resBody 为空。
-   > 2. **服务名中的 `.` 必须转义为 `\.`**：`/Service.Method/` ❌ → `/Service\.Method/` ✅。pattern 是正则，`.` 会匹配任意字符。
+   > 2. **URL pattern 默认只取最后两层**：`/package.subpkg.Service.Method/` ❌ → `/Service.Method/` ✅。
    > 3. **强烈建议加 `resType://json`**：与已知可跑通的规则对齐，避免 Content-Type 推断异常。
 
 5. **批量启用与互斥** — `selected=true` 已在步骤 4 的 `rules/select` 里写入。需同时启用多条规则用 `rules/allow-multiple-choice`（`allowMultipleChoice=1`）。
@@ -141,10 +142,10 @@ Rules 清单：
 6. **强制验证（不可省略，结束前必跑）** — 这是收尾的硬性 gate，**任何"已完成"声明都必须先通过这一步**：
    - `GET /cgi-bin/rules/list`：抓本场景 Rule，**断言 `data` 字段长度 > 0 且包含 `resBody://`**。若 data 为空字符串或缺 `resBody://`，说明 `rules/select` 漏调，**立即补救**：重新调 `rules/select` 写入完整内容；若失败则 `rules/remove` 删空壳 Rule 并重新走步骤 4。
    - **断言 Rule data 中不存在 `resBody://{ ` 或 ` }`**（即花括号内带空格）—— 一旦匹配到，说明会触发 Value 匹配失败 + DNS 报错，立刻 `rules/select` 用无空格版本覆盖。
-   - **断言服务名中的 `.` 已转义为 `\.`**（grep `Service\.Method` vs `Service.Method`）—— 未转义时立刻覆盖。
+   - **断言 URL pattern 使用最后两层 `{Service}.{Method}`，且 `.` 不转义**—— 不要写完整 package 前缀，也不要写成 `Service\.Method`。
    - `GET /cgi-bin/init`：抓 Values，**断言每个 value 的 `data` 字段非空、且包含换行符 `\n`**（单行 JSON 视为不合格，需重写）。任一不达标则重新 `values/add` 写入。
    - **勿用 `values/list`**（不返回内容）。
-   - 仅当 Rule data 非空 + `resBody://{无空格}` + 服务名 `\.` 转义 + 全部 Values 内容齐全，才能宣布"写入完成"。
+   - 仅当 Rule data 非空 + `resBody://{无空格}` + pattern 为最后两层且 `.` 未转义 + 全部 Values 内容齐全，才能宣布"写入完成"。
 
 ### 步骤 5：error 变体（按步骤 3「第三类问题」的确认结果）
 
@@ -154,21 +155,21 @@ Rules 清单：
 
 | error 变体 | 规则行 | Value 内容 |
 |------|--------|-----------|
-| 服务器错误 | `/{Svc}\.{Method}/ statusCode://500` | — |
-| 超时 | `/{Svc}\.{Method}/ resDelay://3000 file://{{Scene}{Method}-error}` | `{"retcode":"500","retmsg":"internal error"}` |
-| 认证失败 | `/{Svc}\.{Method}/ statusCode://401` | — |
-| 限流 | `/{Svc}\.{Method}/ statusCode://429` | — |
-| 业务异常(200+retcode≠0) | `/{Svc}\.{Method}/ resBody://{{Scene}{Method}-biz_error} resType://json statusCode://200` | `{"retcode":"10001","retmsg":"业务处理失败","data":null}` |
+| 服务器错误 | `/{Svc}.{Method}/ statusCode://500` | — |
+| 超时 | `/{Svc}.{Method}/ resDelay://3000 file://{{Scene}{Method}-error}` | `{"retcode":"500","retmsg":"internal error"}` |
+| 认证失败 | `/{Svc}.{Method}/ statusCode://401` | — |
+| 限流 | `/{Svc}.{Method}/ statusCode://429` | — |
+| 业务异常(200+retcode≠0) | `/{Svc}.{Method}/ resBody://{{Scene}{Method}-biz_error} resType://json statusCode://200` | `{"retcode":"10001","retmsg":"业务处理失败","data":null}` |
 
 ## 重要规则
 
 - **🚨 `resBody://{XXX}` 花括号内零空格**：`{ XXX }` ❌ → `{XXX}` ✅。带空格 Whistle 不识别为 Value 引用，resBody 为空，触发 hostname 为空的 DNS 报错（`DNS Lookup Failed`）。
-- **🚨 URL pattern**：tRPC 用方法路径 `/ServiceName\.MethodName/`，服务名中的 `.` **必须**用 `\.` 转义（pattern 是正则），未转义会误匹配；末尾加 `/` 精确匹配；大小写敏感。**建议显式加 `resType://json`** 与已知可跑通的规则对齐。详见 patterns.md。
+- **🚨 URL pattern**：tRPC 默认取完整 RPC 路径最后两层 `/ServiceName.MethodName/`，`.` **不用转义**；不要写完整 package 前缀；末尾加 `/` 精确匹配；大小写敏感。**建议显式加 `resType://json`** 与已知可跑通的规则对齐。详见 patterns.md。
 - **协议**：tRPC 服务默认 `resBody://` + `statusCode://200`（请求仍到服务器、保留真实响应头）；仅后端不可用时用 `file://`。部分字段覆盖用 `resMerge://`。详见 `references/whistle-mock-patterns.md`。
 - **🚨 `rules/add` ≠ 写入规则内容**：`rules/add` 仅创建空壳。**真正写入规则内容靠 `rules/select` 的 `value=` 参数**。两者必须串在同一次 Bash 调用里（`rules/add; rules/select`），否则一旦中途被截断（turn 上限/超时）就会留下空壳 Rule。结束前必须用步骤 4-6 的"强制验证"确认 `data` 字段非空。
 - **一个场景 = 一个 Rule**，所有接口及变体作为独立行写入同一 Rule；更新已有 Rule 时**追加不覆盖**（先读 `rules/list` 检查是否已有该 pattern，避免重复/并发互覆）。
 - **Value 命名** `{Scene}{MethodName}[-{Variant}]`，无 `.json`；命名由 Skill 推测、开发者确认。
-- **分组 `\r` 必须真回车符 (0x0D)**：用 `$'name=\r{Scene}'`，切勿双/单引号。**Whistle 没有 `values/add-group` 接口**，建分组只能用 `values/add` + `$'name=\r{Group}'`，无需做接口探活实验。
+- **分组 `\r` 必须真回车符 (0x0D)**：用 `$'name=\r{Scene}'`，切勿双/单引号。`values/move-to` 用 `from=`（非 `name=`）且必须带 `group=false`。
 - **POST 必须 `--data-urlencode`**，不能用 `-d`（JSON 会丢失）；写入参数名 `value`、读取响应字段名 `data`。
 - **执行约束**：只用 `curl` + `grep` + `head/tail`；不要用 `python3 -c`、 `python3`、`python3 -m`/ `jq` / 临时脚本 / 命令替换 `$(...)`。clientId 用固定串（如 `1718600000000-1`）。批量写入按 3-5 个/批拆 `curl`，不要在批次中用 shell 变量赋值（permission 系统会拒）。
 

@@ -70,9 +70,9 @@ enum DemoItemStatus {
 
 ### 1. 提取服务名
 
-从 `package` 声明：`example.demo.item`
+从 `package` 声明和 `service` 块识别完整 RPC 路径，如 `example.demo.item.DemoItemService.GetDemoItem`。
 
-服务名主要用于派生 **URL pattern**（`/ServiceName.MethodName/`）。注意：Rule 名与 Value Group 名采用**页面/场景名**（由 Skill 根据上下文推测、用户确认），不再使用服务名，详见 `whistle-mock-patterns.md` 的"规则组织最佳实践"。
+服务路径主要用于派生 **URL pattern**，默认取最后两层（`/DemoItemService.GetDemoItem/`），`.` 不转义。注意：Rule 名与 Value Group 名采用**页面/场景名**（由 Skill 根据上下文推测、用户确认），不再使用服务名，详见 `whistle-mock-patterns.md` 的"规则组织最佳实践"。
 
 ### 2. 提取 RPC 方法
 
@@ -83,33 +83,29 @@ enum DemoItemStatus {
 
 ### 3. 派生 URL Pattern
 
-通过 HTTP 网关访问的 tRPC 服务，URL pattern 使用**方法路径**：
+通过 HTTP 网关访问的 tRPC 服务，URL pattern 使用**方法路径**，默认取最后两层 `{Service}.{Method}`：
 
 ```txt
-# 最常见：仅方法名，前后加斜杠
-/MethodName/
-
-# 虚拟示例：
-/GetDemoItemInfo/
-/GetDemoStatus/
-/UpdateDemoAddress/
+# 推荐：最后两层，前后加斜杠，点号不转义
+/DemoItemService.GetDemoItem/
+/DemoItemService.GetDemoStatus/
 /DemoItemService.UpdateDemoAddress/
 ```
 
 **从 proto 派生 pattern 的方法：**
 
-1. **简单方法匹配**（推荐）：直接使用 RPC 方法名
+1. **默认：最后两层匹配**
+   ```
+   Proto: package example.demo.item; service DemoItemService { rpc GetDemoItem(...) }
+   Full: example.demo.item.DemoItemService.GetDemoItem
+   Pattern: /DemoItemService.GetDemoItem/
+   ```
+
+2. **没有服务名线索时，退化为方法名匹配**
    ```
    Proto: rpc GetDemoItem(...) returns (...);
    Pattern: /GetDemoItem/
    ```
-
-2. **服务.方法匹配**（当不同服务可能有同名方法时）：
-   ```
-   Proto: service DemoItemService { rpc GetDemoItem(...) }
-   Pattern: /DemoItemService.GetDemoItem/
-   ```
-   如果服务名包含点号，需要转义：`/Demo\.Service\.GetDemoItem/`
 
 3. **如果用户提供了特定域名或路径前缀**，则添加前缀：
    ```
@@ -352,17 +348,17 @@ enum DemoItemStatus {
 **Rule：`示例商品`（场景名）**
 ```txt
 # 正常响应
-/DemoItemService\.GetDemoItem/ resBody://{示例商品GetDemoItem} resType://json statusCode://200
+/DemoItemService.GetDemoItem/ resBody://{示例商品GetDemoItem} resType://json statusCode://200
 
 # 异常/边界变体（取消注释以启用）
-# /DemoItemService\.GetDemoItem/ statusCode://500
-# /DemoItemService\.GetDemoItem/ resDelay://3000 file://{示例商品GetDemoItem-error}
-# /DemoItemService\.GetDemoItem/ resBody://{示例商品GetDemoItem-空} resType://json statusCode://200
+# /DemoItemService.GetDemoItem/ statusCode://500
+# /DemoItemService.GetDemoItem/ resDelay://3000 file://{示例商品GetDemoItem-error}
+# /DemoItemService.GetDemoItem/ resBody://{示例商品GetDemoItem-空} resType://json statusCode://200
 ```
 
-> 🚨 三处必守约束（违反任一会触发 `DNS Lookup Failed`）：
+> 🚨 三处必守约束：
 > 1. **`{XXX}` 花括号内零空格**：`{ XXX }` ❌ → `{XXX}` ✅
-> 2. **服务名 `.` 转义**：`/Service.Method/` ❌ → `/Service\.Method/` ✅
+> 2. **pattern 取最后两层且 `.` 不转义**：`/package.Service.Method/` ❌ → `/Service.Method/` ✅
 > 3. **显式 `resType://json`**：与已知可跑通规则对齐，避免响应类型推断异常
 
 ### 另一示例：retcode/retmsg 格式（腾讯约定）
@@ -383,7 +379,7 @@ enum DemoItemStatus {
 
 **Rule：`示例页面`（场景名）**
 ```txt
-/DemoItemService\.GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
+/DemoItemService.GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
 ```
 
 ## iWiki 文档解析

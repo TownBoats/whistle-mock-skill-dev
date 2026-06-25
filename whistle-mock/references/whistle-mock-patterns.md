@@ -63,20 +63,19 @@
 
 ### tRPC Pattern 示例（虚拟）
 
-通过 HTTP 网关访问的 tRPC 服务使用**方法路径** pattern，无需域名：
+通过 HTTP 网关访问的 tRPC 服务使用**方法路径** pattern，无需域名；默认取完整 RPC 路径最后两层 `{Service}.{Method}`，`.` 不转义：
 
 ```txt
-# 简单方法名匹配（最常见）
+# 推荐：最后两层 Service.Method
+/DemoItemService.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress} resType://json statusCode://200
+
+# 如果没有服务名线索，可退化为方法名
 /GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
-
-# 小写方法名
-/GetDemoStatus/ resBody://{示例活动页GetDemoStatus} resType://json statusCode://200
-
-# Service.Method 带转义点号（推荐：精确匹配，避免误匹配）
-/DemoItemService\.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress} resType://json statusCode://200
 ```
 
-> 🚨 **服务名 `.` 必须用 `\.` 转义**：pattern 是正则，未转义的 `.` 会匹配任意字符（如 `ServiceXMethod` 也会命中），可能误匹配其他方法或 Whistle 内部请求并触发 `DNS Lookup Failed`。
+> 🚨 **默认只取最后两层**：`/package.subpkg.DemoItemService.UpdateDemoAddress/` ❌ → `/DemoItemService.UpdateDemoAddress/` ✅。
+>
+> 🚨 **`.` 不用转义**：按项目约定直接写 `/DemoItemService.UpdateDemoAddress/`，不要写 `/DemoItemService\.UpdateDemoAddress/`。
 >
 > 🚨 **`{ XXX }` 花括号内不能有空格**：必须写 `{XXX}`，带空格 Whistle 不识别为 Value 引用，resBody 为空，会触发空 hostname 的 DNS 报错。
 >
@@ -86,15 +85,16 @@
 
 | Pattern 类型 | 格式 | 示例 | 适用场景 |
 |-------------|------|------|---------|
-| 仅方法名 | `/MethodName/` | `/GetDemoItemInfo/` | 最常见，匹配任意域名 |
-| 服务.方法 | `/ServiceName.MethodName/` | `/DemoItemService.GetDemoItem/` | 需要区分不同服务的同名方法 |
+| 最后两层 | `/ServiceName.MethodName/` | `/DemoItemService.GetDemoItem/` | 默认选择，区分同名方法 |
+| 仅方法名 | `/MethodName/` | `/GetDemoItemInfo/` | 没有服务名线索时兜底 |
 | 带域名 | `^domain.com/path/Method/` | `^api.example.com/trpc/Method/` | 需要限定特定域名 |
-| 正则 | `/\/ServiceName\.MethodName\//` | `/\/DemoItemService\.UpdateDemoAddress\//` | 含特殊字符的复杂匹配 |
+| 自定义路径 | `/api/path/action/` | `/api/demo/get/` | 非 tRPC 或网关路径特殊 |
 
 **关键约定：**
+- 默认从完整 RPC 路径中取最后两层 `{Service}.{Method}`
+- `.` 不用转义，直接写 `/ServiceName.MethodName/`
 - 尾部 `/` 确保精确匹配方法边界
 - 大多数情况无需域名前缀 — Whistle 匹配任意域名的路径
-- **Service.Method 中必须用 `\.` 转义点号**（未转义会作为正则任意字符匹配，可能误匹配触发 DNS 报错）
 - **Value 引用 `{XXX}` 内零空格**（带空格 Whistle 不识别为引用）
 - **建议显式 `resType://json`**（与可跑通规则对齐）
 - 大小写敏感 — 与 RPC 定义中的大小写完全一致
@@ -213,16 +213,16 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 # 场景：示例页面
 
 # 落地页
-/DemoItemService\.GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
-/DemoItemService\.GetDemoStatus/ resBody://{示例页面GetDemoStatus} resType://json statusCode://200
+/DemoItemService.GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
+/DemoItemService.GetDemoStatus/ resBody://{示例页面GetDemoStatus} resType://json statusCode://200
 
 # 同接口多变体（互斥，只启用一行）
-/DemoItemService\.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress-有数据} resType://json statusCode://200
-# /DemoItemService\.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress-空} resType://json statusCode://200
+/DemoItemService.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress-有数据} resType://json statusCode://200
+# /DemoItemService.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress-空} resType://json statusCode://200
 
 # 异常变体（注释掉，需要时启用）
-# /DemoItemService\.GetDemoItemInfo/ statusCode://500
-# /DemoItemService\.GetDemoStatus/ resDelay://3000 file://{示例页面GetDemoStatus-error}
+# /DemoItemService.GetDemoItemInfo/ statusCode://500
+# /DemoItemService.GetDemoStatus/ resDelay://3000 file://{示例页面GetDemoStatus-error}
 ```
 
 > 不同场景间互不重叠时可同时启用多个 Rule（开启 `allow-multiple-choice`）；在 Whistle 左栏可把 Rule 按**业务大类**用 `\r` 前缀分组折叠（如 `示例业务`、`测试业务`）。
@@ -258,7 +258,7 @@ Value 名不再依赖 `.json` 后缀来推断 Content-Type：
 - **`resBody://` 模式**（推荐）：请求仍发到真实服务器，Whistle 仅替换响应体，**Content-Type 沿用真实服务器响应头**，无需后缀即可正确解析。
 - **`file://` 模式**（纯 mock）：若客户端对 Content-Type 敏感，可显式追加 `resHeaders://` 设置：
   ```txt
-  /Service\.MethodName/ file://{场景MethodName} resHeaders://(content-type=application/json)
+  /Service.MethodName/ file://{场景MethodName} resHeaders://(content-type=application/json)
   ```
 
 ## 常见响应封装格式
