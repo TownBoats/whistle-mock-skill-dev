@@ -7,58 +7,58 @@
 ```protobuf
 syntax = "proto3";
 
-package fuact.equity.material;
+package example.demo.item;
 
 import "google/protobuf/timestamp.proto";
 
 // 服务定义
-service MaterialService {
-  rpc GetMaterial(GetMaterialReq) returns (GetMaterialResp);
-  rpc GetMaterialList(GetMaterialListReq) returns (GetMaterialListResp);
-  rpc CreateMaterial(CreateMaterialReq) returns (CreateMaterialResp);
+service DemoItemService {
+  rpc GetDemoItem(GetDemoItemReq) returns (GetDemoItemResp);
+  rpc ListDemoItems(ListDemoItemsReq) returns (ListDemoItemsResp);
+  rpc CreateDemoItem(CreateDemoItemReq) returns (CreateDemoItemResp);
 }
 
 // 请求消息
-message GetMaterialReq {
-  string material_id = 1;
+message GetDemoItemReq {
+  string item_id = 1;
 }
 
-message GetMaterialListReq {
+message ListDemoItemsReq {
   int32 page = 1;
   int32 page_size = 2;
   string keyword = 3;
 }
 
 // 响应消息
-message GetMaterialResp {
+message GetDemoItemResp {
   int32 code = 1;
   string msg = 2;
-  MaterialData data = 3;
+  DemoItemData data = 3;
 }
 
-message GetMaterialListResp {
+message ListDemoItemsResp {
   int32 code = 1;
   string msg = 2;
-  MaterialListData data = 3;
+  DemoItemListData data = 3;
 }
 
 // 数据消息
-message MaterialData {
-  string material_id = 1;
+message DemoItemData {
+  string item_id = 1;
   string title = 2;
   string content = 3;
   repeated string tags = 4;
-  MaterialStatus status = 5;
+  DemoItemStatus status = 5;
   google.protobuf.Timestamp create_time = 6;
 }
 
-message MaterialListData {
+message DemoItemListData {
   int32 total = 1;
   bool has_more = 2;
-  repeated MaterialData list = 3;
+  repeated DemoItemData list = 3;
 }
 
-enum MaterialStatus {
+enum DemoItemStatus {
   UNKNOWN = 0;
   DRAFT = 1;
   PUBLISHED = 2;
@@ -70,16 +70,16 @@ enum MaterialStatus {
 
 ### 1. 提取服务名
 
-从 `package` 声明：`fuact.equity.material`
+从 `package` 声明：`example.demo.item`
 
 服务名主要用于派生 **URL pattern**（`/ServiceName.MethodName/`）。注意：Rule 名与 Value Group 名采用**页面/场景名**（由 Skill 根据上下文推测、用户确认），不再使用服务名，详见 `whistle-mock-patterns.md` 的"规则组织最佳实践"。
 
 ### 2. 提取 RPC 方法
 
 从 `service` 块中提取每个 `rpc`：
-- `GetMaterial` → 方法名
-- `GetMaterialReq` → 请求消息名
-- `GetMaterialResp` → 响应消息名
+- `GetDemoItem` → 方法名
+- `GetDemoItemReq` → 请求消息名
+- `GetDemoItemResp` → 响应消息名
 
 ### 3. 派生 URL Pattern
 
@@ -89,27 +89,27 @@ enum MaterialStatus {
 # 最常见：仅方法名，前后加斜杠
 /MethodName/
 
-# 来自真实服务的示例：
-/QueryMaterialsEquityInfo/
-/getTransportState/
-/ModifyOrderAddress/
-/FuactEquityMaterialVoService.ModifyOrderAddress/
+# 虚拟示例：
+/GetDemoItemInfo/
+/GetDemoStatus/
+/UpdateDemoAddress/
+/DemoItemService.UpdateDemoAddress/
 ```
 
 **从 proto 派生 pattern 的方法：**
 
 1. **简单方法匹配**（推荐）：直接使用 RPC 方法名
    ```
-   Proto: rpc GetMaterial(...) returns (...);
-   Pattern: /GetMaterial/
+   Proto: rpc GetDemoItem(...) returns (...);
+   Pattern: /GetDemoItem/
    ```
 
 2. **服务.方法匹配**（当不同服务可能有同名方法时）：
    ```
-   Proto: service MaterialService { rpc GetMaterial(...) }
-   Pattern: /MaterialService.GetMaterial/
+   Proto: service DemoItemService { rpc GetDemoItem(...) }
+   Pattern: /DemoItemService.GetDemoItem/
    ```
-   如果服务名包含点号，需要转义：`/Material\.Service\.GetMaterial/`
+   如果服务名包含点号，需要转义：`/Demo\.Service\.GetDemoItem/`
 
 3. **如果用户提供了特定域名或路径前缀**，则添加前缀：
    ```
@@ -283,31 +283,31 @@ function generateValue(type, depth):
 ### 输入 Proto：
 ```protobuf
 syntax = "proto3";
-package fuact.equity.material;
+package example.demo.item;
 
-service MaterialService {
-  rpc GetMaterial(GetMaterialReq) returns (GetMaterialResp);
+service DemoItemService {
+  rpc GetDemoItem(GetDemoItemReq) returns (GetDemoItemResp);
 }
 
-message GetMaterialReq {
-  string material_id = 1;
+message GetDemoItemReq {
+  string item_id = 1;
 }
 
-message GetMaterialResp {
+message GetDemoItemResp {
   int32 code = 1;
   string msg = 2;
-  MaterialData data = 3;
+  DemoItemData data = 3;
 }
 
-message MaterialData {
-  string material_id = 1;
+message DemoItemData {
+  string item_id = 1;
   string title = 2;
   string content = 3;
   repeated string tags = 4;
-  MaterialStatus status = 5;
+  DemoItemStatus status = 5;
 }
 
-enum MaterialStatus {
+enum DemoItemStatus {
   UNKNOWN = 0;
   DRAFT = 1;
   PUBLISHED = 2;
@@ -316,13 +316,13 @@ enum MaterialStatus {
 
 ### 生成的 Mock：
 
-**Value：`商品物料GetMaterial`**
+**Value：`示例商品GetDemoItem`**
 ```json
 {
   "code": 0,
   "msg": "ok",
   "data": {
-    "material_id": "10001",
+    "item_id": "10001",
     "title": "示例标题",
     "content": "这是示例描述文本",
     "tags": ["标签1", "标签2"],
@@ -331,7 +331,7 @@ enum MaterialStatus {
 }
 ```
 
-**Value：`商品物料GetMaterial-error`**
+**Value：`示例商品GetDemoItem-error`**
 ```json
 {
   "code": 500,
@@ -340,7 +340,7 @@ enum MaterialStatus {
 }
 ```
 
-**Value：`商品物料GetMaterial-空`**
+**Value：`示例商品GetDemoItem-空`**
 ```json
 {
   "code": 0,
@@ -349,15 +349,15 @@ enum MaterialStatus {
 }
 ```
 
-**Rule：`商品物料`（场景名）**
+**Rule：`示例商品`（场景名）**
 ```txt
 # 正常响应
-/MaterialService\.GetMaterial/ resBody://{商品物料GetMaterial} resType://json statusCode://200
+/DemoItemService\.GetDemoItem/ resBody://{示例商品GetDemoItem} resType://json statusCode://200
 
 # 异常/边界变体（取消注释以启用）
-# /MaterialService\.GetMaterial/ statusCode://500
-# /MaterialService\.GetMaterial/ resDelay://3000 file://{商品物料GetMaterial-error}
-# /MaterialService\.GetMaterial/ resBody://{商品物料GetMaterial-空} resType://json statusCode://200
+# /DemoItemService\.GetDemoItem/ statusCode://500
+# /DemoItemService\.GetDemoItem/ resDelay://3000 file://{示例商品GetDemoItem-error}
+# /DemoItemService\.GetDemoItem/ resBody://{示例商品GetDemoItem-空} resType://json statusCode://200
 ```
 
 > 🚨 三处必守约束（违反任一会触发 `DNS Lookup Failed`）：
@@ -367,30 +367,30 @@ enum MaterialStatus {
 
 ### 另一示例：retcode/retmsg 格式（腾讯约定）
 
-**Value：`专享理财金QueryMaterialsEquityInfo`**
+**Value：`示例页面GetDemoItemInfo`**
 ```json
 {
   "retcode": "0",
   "retmsg": "OK",
-  "material_prize_info": {
-    "user_prize_id": "UP202605200001",
-    "prize_name": "示例奖品",
-    "prize_url": "https://via.placeholder.com/300x300"
+  "item_reward_info": {
+    "reward_id": "REWARD_10001",
+    "reward_name": "示例奖品",
+    "reward_url": "https://via.placeholder.com/300x300"
   },
-  "materials_order_state": "NOT_ORDERED"
+  "item_order_state": "NOT_ORDERED"
 }
 ```
 
-**Rule：`专享理财金`（场景名）**
+**Rule：`示例页面`（场景名）**
 ```txt
-/FuactEquityVoService\.QueryMaterialsEquityInfo/ resBody://{专享理财金QueryMaterialsEquityInfo} resType://json statusCode://200
+/DemoItemService\.GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
 ```
 
 ## iWiki 文档解析
 
 当输入来自 iWiki（而非 proto 文件）时，文档通常包含：
 
-1. **API 路径** — 如 `/api/v1/material/get`
+1. **API 路径** — 如 `/api/v1/items/get`
 2. **请求方法** — GET/POST
 3. **请求参数** — Query 参数或请求体字段
 4. **响应结构** — 带字段描述的 JSON 结构

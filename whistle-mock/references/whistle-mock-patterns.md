@@ -61,19 +61,19 @@
 
 ## tRPC URL Pattern 设计
 
-### 实际 tRPC Pattern（来自真实规则）
+### tRPC Pattern 示例（虚拟）
 
 通过 HTTP 网关访问的 tRPC 服务使用**方法路径** pattern，无需域名：
 
 ```txt
 # 简单方法名匹配（最常见）
-/QueryMaterialsEquityInfo/ resBody://{专享理财金QueryMaterialsEquityInfo} resType://json statusCode://200
+/GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
 
 # 小写方法名
-/getTransportState/ resBody://{财富私享会getTransportState} resType://json statusCode://200
+/GetDemoStatus/ resBody://{示例活动页GetDemoStatus} resType://json statusCode://200
 
 # Service.Method 带转义点号（推荐：精确匹配，避免误匹配）
-/FuactEquityMaterialVoService\.ModifyOrderAddress/ resBody://{专享理财金ModifyOrderAddress} resType://json statusCode://200
+/DemoItemService\.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress} resType://json statusCode://200
 ```
 
 > 🚨 **服务名 `.` 必须用 `\.` 转义**：pattern 是正则，未转义的 `.` 会匹配任意字符（如 `ServiceXMethod` 也会命中），可能误匹配其他方法或 Whistle 内部请求并触发 `DNS Lookup Failed`。
@@ -86,10 +86,10 @@
 
 | Pattern 类型 | 格式 | 示例 | 适用场景 |
 |-------------|------|------|---------|
-| 仅方法名 | `/MethodName/` | `/QueryMaterialsEquityInfo/` | 最常见，匹配任意域名 |
-| 服务.方法 | `/ServiceName.MethodName/` | `/MaterialService.GetMaterial/` | 需要区分不同服务的同名方法 |
+| 仅方法名 | `/MethodName/` | `/GetDemoItemInfo/` | 最常见，匹配任意域名 |
+| 服务.方法 | `/ServiceName.MethodName/` | `/DemoItemService.GetDemoItem/` | 需要区分不同服务的同名方法 |
 | 带域名 | `^domain.com/path/Method/` | `^api.example.com/trpc/Method/` | 需要限定特定域名 |
-| 正则 | `/\/ServiceName\.MethodName\//` | `/\/FuactEquityMaterialVoService\.ModifyOrderAddress\//` | 含特殊字符的复杂匹配 |
+| 正则 | `/\/ServiceName\.MethodName\//` | `/\/DemoItemService\.UpdateDemoAddress\//` | 含特殊字符的复杂匹配 |
 
 **关键约定：**
 - 尾部 `/` 确保精确匹配方法边界
@@ -210,32 +210,32 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 将一个**页面/业务场景**涉及的所有接口（及变体）归入同一个 Rule，Rule 名 = 场景名。Rule 内可用注释行细分子场景，同接口的多个变体并列、互斥（只启用一行，其余注释）：
 
 ```txt
-# 场景：专享理财金
+# 场景：示例页面
 
 # 落地页
-/FuactEquityVoService\.QueryMaterialsEquityInfo/ resBody://{专享理财金QueryMaterialsEquityInfo} resType://json statusCode://200
-/FuactEquityVoService\.getTransportState/ resBody://{专享理财金getTransportState} resType://json statusCode://200
+/DemoItemService\.GetDemoItemInfo/ resBody://{示例页面GetDemoItemInfo} resType://json statusCode://200
+/DemoItemService\.GetDemoStatus/ resBody://{示例页面GetDemoStatus} resType://json statusCode://200
 
 # 同接口多变体（互斥，只启用一行）
-/FuactEquityVoService\.ModifyOrderAddress/ resBody://{专享理财金ModifyOrderAddress-有数据} resType://json statusCode://200
-# /FuactEquityVoService\.ModifyOrderAddress/ resBody://{专享理财金ModifyOrderAddress-空} resType://json statusCode://200
+/DemoItemService\.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress-有数据} resType://json statusCode://200
+# /DemoItemService\.UpdateDemoAddress/ resBody://{示例页面UpdateDemoAddress-空} resType://json statusCode://200
 
 # 异常变体（注释掉，需要时启用）
-# /FuactEquityVoService\.QueryMaterialsEquityInfo/ statusCode://500
-# /FuactEquityVoService\.getTransportState/ resDelay://3000 file://{专享理财金getTransportState-error}
+# /DemoItemService\.GetDemoItemInfo/ statusCode://500
+# /DemoItemService\.GetDemoStatus/ resDelay://3000 file://{示例页面GetDemoStatus-error}
 ```
 
-> 不同场景间互不重叠时可同时启用多个 Rule（开启 `allow-multiple-choice`）；在 Whistle 左栏可把 Rule 按**业务大类**用 `\r` 前缀分组折叠（如 `权益页面`、`运营页面`）。
+> 不同场景间互不重叠时可同时启用多个 Rule（开启 `allow-multiple-choice`）；在 Whistle 左栏可把 Rule 按**业务大类**用 `\r` 前缀分组折叠（如 `示例业务`、`测试业务`）。
 
 ### Values 按场景分组
 
 将 Values 按场景名组织到 Group 中（Group 名 = 场景名）：
-- Group：`专享理财金`
-  - `专享理财金QueryMaterialsEquityInfo` — 正常响应
-  - `专享理财金getTransportState` — 正常响应
-  - `专享理财金ModifyOrderAddress-有数据` — 有数据变体
-  - `专享理财金ModifyOrderAddress-空` — 空数据变体
-  - `专享理财金getTransportState-error` — 错误变体
+- Group：`示例页面`
+  - `示例页面GetDemoItemInfo` — 正常响应
+  - `示例页面GetDemoStatus` — 正常响应
+  - `示例页面UpdateDemoAddress-有数据` — 有数据变体
+  - `示例页面UpdateDemoAddress-空` — 空数据变体
+  - `示例页面GetDemoStatus-error` — 错误变体
 
 ### 命名约定
 
@@ -243,11 +243,11 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 
 | 类型 | 命名格式 | 示例 |
 |------|---------|------|
-| 正常响应 | `{Scene}{MethodName}` | `专享理财金GetUser` |
-| 有/无数据 | `{Scene}{MethodName}-有数据` / `-空` | `财富私享会WealthMeetingRecentInvite-没有` |
-| 有奖/无奖 | `{Scene}{MethodName}-有奖` / `-无奖` | `会员定投福利卡qry_prize_info_by_actid-有奖` |
-| 错误/异常 | `{Scene}{MethodName}-error` / `-biz_error` | `专享理财金GetUser-error` |
-| 多版本 | `{Scene}{MethodName}-1` / `-2` | `财富私享会WealthMeetingFeaturedReview-2` |
+| 正常响应 | `{Scene}{MethodName}` | `示例页面GetUser` |
+| 有/无数据 | `{Scene}{MethodName}-有数据` / `-空` | `示例活动页GetInviteStatus-没有` |
+| 有奖/无奖 | `{Scene}{MethodName}-有奖` / `-无奖` | `示例活动页QueryRewardInfo-有奖` |
+| 错误/异常 | `{Scene}{MethodName}-error` / `-biz_error` | `示例页面GetUser-error` |
+| 多版本 | `{Scene}{MethodName}-1` / `-2` | `示例活动页GetFeaturedReview-2` |
 
 > 业务大类与场景名由 Skill 根据上下文推测、给出建议，经用户确认后使用，不要写死。
 

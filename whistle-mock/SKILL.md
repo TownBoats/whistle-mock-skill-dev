@@ -4,7 +4,7 @@ cn_name: Whistle Mock 规则生成
 owner: timotang
 description: 当用户需要为 RPC/API 接口生成 Whistle mock 规则时使用此 Skill。指导解析接口文档（proto 文件、iWiki 文档），根据返回结构自动生成 mock 数据，通过 HTTP API 或 whistle-mcp 写入 Whistle。触发关键词：生成mock规则, mock接口, mock API, 接口mock, whistle mock, 生成mock数据.
 version: 1.0.0
-updated_at: '2026-06-15'
+updated_at: '2026-06-25'
 tags:
   tech_stack:
     - frontend
@@ -24,7 +24,7 @@ tags:
 1. **【用户】发送文档** — 提供接口文档（Git/iWiki 链接或直接粘贴 proto）。
 2. **【AI】解析 + 规划清单 + 结尾确认** — 解析文档，**只产出计划写入的 Rules 和 Values 名称清单**（含建议的业务大类、场景名、每个接口对应的 Value 名 + 业务变体名），**不产出 mock JSON 内容**，在回答末尾用编号列表集中确认下列问题：
    - **一、命名是否可以** — 建议的业务大类 / 场景名 / Value 命名（`{Scene}{MethodName}[-{Variant}]`）。
-   - **二、是否需要业务变体（基于接口 message 的不同业务态）** — 根据接口响应 message 的实际字段语义推测可能的业务态变体（如订单接口 → `-已下单`/`-未下单`/`-已退款`；权益接口 → `-有奖`/`-无奖`；列表接口 → `-有数据`/`-空`）。**禁止套用刻板模板**，必须结合接口 message 内容给出针对性建议；无明显业务态时不强行添加。
+   - **二、是否需要业务变体（基于接口 message 的不同业务态）** — 根据接口响应 message 的实际字段语义推测可能的业务态变体（如订单接口 → `-已下单`/`-未下单`/`-已退款`；活动接口 → `-已参与`/`-未参与`；列表接口 → `-有数据`/`-空`）。**禁止套用刻板模板**，必须结合接口 message 内容给出针对性建议；无明显业务态时不强行添加。
    - **三、是否需要 error 变体（与 message 无关的协议/异常态）** — 是否补充 500/401/429/超时/业务异常 retcode≠0 等错误态变体（与具体业务无关，按需选用）。
    - **四、是否需要调整命名 / pattern / 协议** — 例如 Value 名想自定义、URL pattern 需限定域名、协议想用 `file://` 等。
 3. **【用户】回答** — 一次性回复上述四类问题。
@@ -42,11 +42,11 @@ tags:
 
 | 层级 | 含义 | 对应 Whistle 实体 | 命名 |
 |------|------|------------------|------|
-| **业务大类** | 一组相关页面/场景 | Rule 的 `\r` 分组 | `{Category}`，如 `权益页面`、`运营页面` |
-| **页面/场景** | 一个具体需求/页面 | 一个 Rule + 一个 Value Group | `{Scene}`，如 `专享理财金`、`财富私享会` |
+| **业务大类** | 一组相关页面/场景 | Rule 的 `\r` 分组 | `{Category}`，如 `示例业务`、`测试业务` |
+| **页面/场景** | 一个具体需求/页面 | 一个 Rule + 一个 Value Group | `{Scene}`，如 `示例页面`、`示例活动页` |
 | **接口变体** | 同接口的不同返回态 | Rule 行 + 一个 Value | `{Scene}{MethodName}[-{Variant}]` |
 
-- **Value 命名**：`{Scene}{MethodName}[-{Variant}]`，**不加 `.json` 后缀**。如 `专享理财金queryPrizeLandingConfig`、`财富私享会WealthMeetingRecentInvite-没有`。
+- **Value 命名**：`{Scene}{MethodName}[-{Variant}]`，**不加 `.json` 后缀**。如 `示例页面GetPageConfig`、`示例活动页GetInviteStatus-没有`。
 - **变体后缀**区分同接口不同返回，如 `-有奖`/`-无奖`、`-有数据`/`-空`、`-1`/`-2`；无变体可省略。
 - 命名不能写死：根据会话上下文推测 `{Category}`/`{Scene}`，按「交互原则」第 2 步交开发者确认后再用。
 

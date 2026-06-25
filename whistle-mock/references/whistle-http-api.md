@@ -412,9 +412,9 @@ curl -s -X POST http://127.0.0.1:{PORT}/cgi-bin/composer \
 ```bash
 # 创建 .whistle.js
 cat > /tmp/.whistle.js << 'EOF'
-exports.name = 'mock-奖品详情';
+exports.name = 'mock-示例详情';
 exports.rules = `
-/QueryMaterialsEquityInfo/ resBody://{QueryMaterialsEquityInfo.json} statusCode://200
+/GetDemoItemInfo/ resBody://{GetDemoItemInfo.json} statusCode://200
 `;
 EOF
 
