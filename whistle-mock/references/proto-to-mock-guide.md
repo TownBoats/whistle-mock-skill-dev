@@ -352,13 +352,18 @@ enum MaterialStatus {
 **Rule：`商品物料`（场景名）**
 ```txt
 # 正常响应
-/GetMaterial/ resBody://{ 商品物料GetMaterial } statusCode://200
+/MaterialService\.GetMaterial/ resBody://{商品物料GetMaterial} resType://json statusCode://200
 
 # 异常/边界变体（取消注释以启用）
-# /GetMaterial/ statusCode://500
-# /GetMaterial/ resDelay://3000 file://{ 商品物料GetMaterial-error }
-# /GetMaterial/ resBody://{ 商品物料GetMaterial-空 } statusCode://200
+# /MaterialService\.GetMaterial/ statusCode://500
+# /MaterialService\.GetMaterial/ resDelay://3000 file://{商品物料GetMaterial-error}
+# /MaterialService\.GetMaterial/ resBody://{商品物料GetMaterial-空} resType://json statusCode://200
 ```
+
+> 🚨 三处必守约束（违反任一会触发 `DNS Lookup Failed`）：
+> 1. **`{XXX}` 花括号内零空格**：`{ XXX }` ❌ → `{XXX}` ✅
+> 2. **服务名 `.` 转义**：`/Service.Method/` ❌ → `/Service\.Method/` ✅
+> 3. **显式 `resType://json`**：与已知可跑通规则对齐，避免响应类型推断异常
 
 ### 另一示例：retcode/retmsg 格式（腾讯约定）
 
@@ -378,7 +383,7 @@ enum MaterialStatus {
 
 **Rule：`专享理财金`（场景名）**
 ```txt
-/QueryMaterialsEquityInfo/ resBody://{ 专享理财金QueryMaterialsEquityInfo } statusCode://200
+/FuactEquityVoService\.QueryMaterialsEquityInfo/ resBody://{专享理财金QueryMaterialsEquityInfo} resType://json statusCode://200
 ```
 
 ## iWiki 文档解析

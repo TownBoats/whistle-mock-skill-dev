@@ -11,6 +11,24 @@
 - **认证**: 如果 whistle 设置了用户名密码，使用 HTTP Basic Auth（`-u username:password`）
 - **成功响应**: `{"ec": 0}` 表示成功
 
+## 🚨 常见陷阱速查（写入前必读）
+
+> 这些是反复踩坑后总结的 Top 陷阱，**写入前先扫一遍能避免 80% 的失败**：
+
+1. **`rules/add` 只创建空壳，不写内容**——真正写入靠 `rules/select` 的 `value=` 参数。两步**必须串在同一次 Bash 调用里**（用 `;` 串联），否则一旦中途被截断就会留下空壳 Rule。结束前用 `rules/list` 验证 `data` 字段非空。
+2. **🚨 `resBody://{XXX}` 花括号内零空格 + 服务名 `.` 必须转义**——这三件事任一违反，Whistle 会返回 `DNS Lookup Failed`（hostname 为空字符串）：
+   - `resBody://{ XXX }` ❌（带空格） → `resBody://{XXX}` ✅
+   - `/Service.Method/` ❌（未转义 `.`） → `/Service\.Method/` ✅
+   - 强烈建议显式加 `resType://json` 与已跑通的规则对齐
+3. **Whistle 没有 `values/add-group` 接口**——别浪费 turn 探活。建分组的**唯一**方式是 `values/add` + `$'name=\r{Group}'`（必须 ANSI-C quoting）。
+4. **`\r` 必须是真回车符 (0x0D)**——用 `$'name=\r分组名'`。双引号 `"...\r..."` 或单引号 `'...\r...'` 都会变成字面反斜杠+r，分组失效。
+5. **POST 必须 `--data-urlencode`**——用 `-d` 传 JSON 时特殊字符会丢，写入为空。
+6. **写入用 `value` 字段，读取用 `data` 字段**——字段名不对称，别搞混。
+7. **`values/list` 不返回内容**——查 value 内容必须用 `/cgi-bin/init` 看 `values.list[].data`。
+8. **批量调用 + shell 变量赋值会被 CodeBuddy CLI 拒绝**（`SCENE='xxx';...` 这种命令 root 无法识别）——直接把字面值拼进每条 curl，按 3-5 个/批拆。
+
+---
+
 ## 端口检测
 
 ```bash
@@ -50,7 +68,13 @@ curl -s http://127.0.0.1:{PORT}/cgi-bin/rules/list
 }
 ```
 
-### 创建规则（仅创建空规则）
+### ⚠️ 创建规则（rules/add 仅占位，不写内容；必须紧跟 rules/select）
+
+> 🚨🚨 **`rules/add` 不会写入规则内容！它只是创建一个空壳 Rule（name 有了、data 是空的）。**
+> 要让 mock 真正生效，**必须立即调用 `rules/select` 写入 `value=` 内容**。两步必须串在同一次 Bash 调用里（`;` 分隔），不可分批。
+>
+> ❌ **错误用法**（仅调 `rules/add` 就结束）：Whistle 里建了一个名字，但 mock 完全无效。这是 mock 不生效最常见的根因。
+> ✅ **正确用法**：`rules/add; rules/select`（两条 curl 用分号串联）。
 
 ```bash
 curl -s -X POST http://127.0.0.1:{PORT}/cgi-bin/rules/add \
@@ -58,8 +82,6 @@ curl -s -X POST http://127.0.0.1:{PORT}/cgi-bin/rules/add \
   --data-urlencode "clientId=1718600000000-0" \
   --data-urlencode "name=规则名"
 ```
-
-> 注意：`rules/add` 仅创建空规则。要写入规则内容需调用 `rules/select`。
 
 ### 更新规则内容（并启用）
 
@@ -71,7 +93,7 @@ curl -s -X POST http://127.0.0.1:{PORT}/cgi-bin/rules/select \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "clientId=1718600000000-0" \
   --data-urlencode "name=规则名" \
-  --data-urlencode "value=/MethodName/ resBody://{mock.json} statusCode://200" \
+  --data-urlencode "value=/Service\.MethodName/ resBody://{mock.json} resType://json statusCode://200" \
   --data-urlencode "selected=true" \
   --data-urlencode "active=true" \
   --data-urlencode "key=w-reactkey-$(( RANDOM % 1000 ))" \
@@ -444,7 +466,7 @@ curl -s -X POST http://127.0.0.1:$PORT/cgi-bin/rules/select \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "clientId=1718600000000-0" \
   --data-urlencode "name=mock-MyService" \
-  --data-urlencode "value=/GetUserInfo/ resBody://{GetUserInfo.json} statusCode://200" \
+  --data-urlencode "value=/UserService\.GetUserInfo/ resBody://{GetUserInfo.json} resType://json statusCode://200" \
   --data-urlencode "selected=true" \
   --data-urlencode "active=true" \
   --data-urlencode "key=w-reactkey-$(( RANDOM % 1000 ))" \

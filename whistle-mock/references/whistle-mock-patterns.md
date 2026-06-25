@@ -22,8 +22,10 @@
 
 **模式：**
 ```txt
-/MethodName/ resBody://{ {Scene}MethodName } statusCode://200
+/MethodName/ resBody://{{Scene}MethodName} resType://json statusCode://200
 ```
+
+> 🚨 `{XXX}` 花括号内**不能有空格**。`{ XXX }` 会让 Whistle 把整段当字面 URL 而非 Value 引用，导致 resBody 为空、命中空 hostname 的 DNS 查询并报 `DNS Lookup Failed`。
 
 ### file 协议（用于离线/纯 Mock）
 
@@ -43,7 +45,7 @@
 
 **模式：**
 ```txt
-/MethodName/ file://{ {Scene}MethodName }
+/MethodName/ file://{{Scene}MethodName}
 ```
 
 ### 协议对比
@@ -65,17 +67,20 @@
 
 ```txt
 # 简单方法名匹配（最常见）
-/QueryMaterialsEquityInfo/ resBody://{ 专享理财金QueryMaterialsEquityInfo } statusCode://200
+/QueryMaterialsEquityInfo/ resBody://{专享理财金QueryMaterialsEquityInfo} resType://json statusCode://200
 
 # 小写方法名
-/getTransportState/ resBody://{ 财富私享会getTransportState } statusCode://200
+/getTransportState/ resBody://{财富私享会getTransportState} resType://json statusCode://200
 
-# Service.Method 带转义点号（精确匹配）
-/FuactEquityMaterialVoService\.ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress } statusCode://200
-
-# Service.Method 不转义（宽松匹配，同样有效）
-/FuactEquityMaterialVoService.ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress } statusCode://200
+# Service.Method 带转义点号（推荐：精确匹配，避免误匹配）
+/FuactEquityMaterialVoService\.ModifyOrderAddress/ resBody://{专享理财金ModifyOrderAddress} resType://json statusCode://200
 ```
+
+> 🚨 **服务名 `.` 必须用 `\.` 转义**：pattern 是正则，未转义的 `.` 会匹配任意字符（如 `ServiceXMethod` 也会命中），可能误匹配其他方法或 Whistle 内部请求并触发 `DNS Lookup Failed`。
+>
+> 🚨 **`{ XXX }` 花括号内不能有空格**：必须写 `{XXX}`，带空格 Whistle 不识别为 Value 引用，resBody 为空，会触发空 hostname 的 DNS 报错。
+>
+> 💡 **强烈建议显式加 `resType://json`**：避免 Content-Type 推断异常（与项目中已跑通的 mock 规则对齐）。
 
 ### Pattern 匹配规则
 
@@ -89,7 +94,9 @@
 **关键约定：**
 - 尾部 `/` 确保精确匹配方法边界
 - 大多数情况无需域名前缀 — Whistle 匹配任意域名的路径
-- Service.Method 中用 `\.` 转义点号实现精确匹配
+- **Service.Method 中必须用 `\.` 转义点号**（未转义会作为正则任意字符匹配，可能误匹配触发 DNS 报错）
+- **Value 引用 `{XXX}` 内零空格**（带空格 Whistle 不识别为引用）
+- **建议显式 `resType://json`**（与可跑通规则对齐）
 - 大小写敏感 — 与 RPC 定义中的大小写完全一致
 
 ### RESTful API Pattern
@@ -127,10 +134,10 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ### 超时模拟
 ```txt
 # 延迟 3 秒后返回正常数据
-/MethodName/ resDelay://3000 resBody://{ {Scene}MethodName } statusCode://200
+/MethodName/ resDelay://3000 resBody://{{Scene}MethodName} resType://json statusCode://200
 
 # 延迟 + 错误响应
-/MethodName/ resDelay://5000 file://{ {Scene}MethodName-error }
+/MethodName/ resDelay://5000 file://{{Scene}MethodName-error}
 ```
 
 ### 网络错误模拟
@@ -154,7 +161,7 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ### 空数据 / 空响应
 ```txt
 # 返回成功但数据为空
-/MethodName/ resBody://{ {Scene}MethodName-空 } statusCode://200
+/MethodName/ resBody://{{Scene}MethodName-空} resType://json statusCode://200
 ```
 其中 `{Scene}MethodName-空` 内容：
 ```json
@@ -169,7 +176,7 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ```txt
 # 50% 概率错误，50% 概率成功
 /MethodName/ statusCode://500 includeFilter://chance:0.5
-/MethodName/ resBody://{ {Scene}MethodName } statusCode://200 includeFilter://chance:0.5
+/MethodName/ resBody://{{Scene}MethodName} resType://json statusCode://200 includeFilter://chance:0.5
 ```
 
 ## 部分 Mock 模式
@@ -185,7 +192,7 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 ### resBody — 完整替换
 ```txt
 # 替换整个响应体（请求仍发送到服务器）
-/MethodName/ resBody://{ {Scene}MethodName-override } statusCode://200
+/MethodName/ resBody://{{Scene}MethodName-override} resType://json statusCode://200
 ```
 
 ### resReplace — 文本替换
@@ -206,16 +213,16 @@ example.com/api/jsonp tpl://{jsonp-template.json}
 # 场景：专享理财金
 
 # 落地页
-/QueryMaterialsEquityInfo/ resBody://{ 专享理财金QueryMaterialsEquityInfo } statusCode://200
-/getTransportState/ resBody://{ 专享理财金getTransportState } statusCode://200
+/FuactEquityVoService\.QueryMaterialsEquityInfo/ resBody://{专享理财金QueryMaterialsEquityInfo} resType://json statusCode://200
+/FuactEquityVoService\.getTransportState/ resBody://{专享理财金getTransportState} resType://json statusCode://200
 
 # 同接口多变体（互斥，只启用一行）
-/ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress-有数据 } statusCode://200
-# /ModifyOrderAddress/ resBody://{ 专享理财金ModifyOrderAddress-空 } statusCode://200
+/FuactEquityVoService\.ModifyOrderAddress/ resBody://{专享理财金ModifyOrderAddress-有数据} resType://json statusCode://200
+# /FuactEquityVoService\.ModifyOrderAddress/ resBody://{专享理财金ModifyOrderAddress-空} resType://json statusCode://200
 
 # 异常变体（注释掉，需要时启用）
-# /QueryMaterialsEquityInfo/ statusCode://500
-# /getTransportState/ resDelay://3000 file://{ 专享理财金getTransportState-error }
+# /FuactEquityVoService\.QueryMaterialsEquityInfo/ statusCode://500
+# /FuactEquityVoService\.getTransportState/ resDelay://3000 file://{专享理财金getTransportState-error}
 ```
 
 > 不同场景间互不重叠时可同时启用多个 Rule（开启 `allow-multiple-choice`）；在 Whistle 左栏可把 Rule 按**业务大类**用 `\r` 前缀分组折叠（如 `权益页面`、`运营页面`）。
@@ -251,7 +258,7 @@ Value 名不再依赖 `.json` 后缀来推断 Content-Type：
 - **`resBody://` 模式**（推荐）：请求仍发到真实服务器，Whistle 仅替换响应体，**Content-Type 沿用真实服务器响应头**，无需后缀即可正确解析。
 - **`file://` 模式**（纯 mock）：若客户端对 Content-Type 敏感，可显式追加 `resHeaders://` 设置：
   ```txt
-  /MethodName/ file://{ 场景MethodName } resHeaders://(content-type=application/json)
+  /Service\.MethodName/ file://{场景MethodName} resHeaders://(content-type=application/json)
   ```
 
 ## 常见响应封装格式
